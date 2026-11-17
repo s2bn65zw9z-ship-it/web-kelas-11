@@ -1,0 +1,17 @@
+{
+  "_catatan": "Ubah nominalPerBulan sesuai kesepakatan kelas. Nilai 10000 hanyalah contoh. Bendahara juga bisa mengubahnya langsung di halaman Kas.",
+  "tahunAjaran": "2026/2027",
+  "nominalPerBulan": 10000,
+  "bulan": [
+    "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12",
+    "2027-01", "2027-02", "2027-03", "2027-04", "2027-05", "2027-06"
+  ],
+  "metode": [
+    { "id": "cash", "label": "Tunai" },
+    { "id": "qris", "label": "QRIS" }
+  ],
+  "qris": {
+    "gambar": "assets/qris.jpg",
+    "nmid": "ID1026480715790"
+  }
+}
