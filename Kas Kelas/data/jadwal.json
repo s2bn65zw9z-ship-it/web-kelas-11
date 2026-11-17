@@ -1,0 +1,73 @@
+{
+  "sumber": "Jadwal Pelajaran SMA Plus Melati Samarinda, Tahun Pelajaran 2026/2027, ditetapkan di Samarinda 16 Juli 2026",
+  "mapel": {
+    "E": "Ekonomi",
+    "S1": "Sosiologi",
+    "S2": "Sejarah",
+    "B1": "Bahasa Indonesia",
+    "B2": "Seni Budaya",
+    "I": "Informatika",
+    "P": "Pendidikan Pancasila",
+    "H": "Bahasa Inggris",
+    "J": "Penjaskes",
+    "K1": "Kimia",
+    "K2": "Muatan Lokal",
+    "T1": "Pendidikan Agama Kristen",
+    "T2": "Seni Budaya",
+    "G1": "Geografi",
+    "G2": "Sejarah",
+    "F": "Fisika",
+    "A1": "Pendidikan Agama Islam",
+    "A2": "Muatan Lokal",
+    "L1": "Bimbingan Konseling",
+    "L2": "Sosiologi",
+    "O": "Biologi",
+    "O1": "Muatan Lokal",
+    "M1": "Matematika",
+    "M2": "Matematika Tingkat Lanjut"
+  },
+  "jamNormal": [
+    "07.15-08.00", "08.00-08.45", "08.45-09.30", "10.00-10.45", "10.45-11.30",
+    "11.30-12.15", "13.00-13.45", "13.45-14.30", "14.30-15.15", "15.15-16.00"
+  ],
+  "jamJumat": [
+    "07.15-08.00", "08.00-08.45", "08.45-09.30", "10.00-10.45", "10.45-11.30",
+    "11.30-12.00", "13.15-13.30", "13.30-14.15", "14.15-15.00", "15.00-16.00"
+  ],
+  "istirahatNormal": [
+    { "after": 3, "waktu": "09.30-10.00", "nama": "Istirahat" },
+    { "after": 6, "waktu": "12.15-13.00", "nama": "Ishoma" }
+  ],
+  "istirahatJumat": [
+    { "after": 3, "waktu": "09.30-10.00", "nama": "Istirahat" },
+    { "after": 6, "waktu": "12.00-13.15", "nama": "Ishoma" }
+  ],
+  "ekskul": "16.00-17.00",
+  "hari": {
+    "Senin": {
+      "X": ["Upacara / Kegiatan Keagamaan", "G1", "G1", "H", "H", "H", "A1/T1", "A1/T1", "O2", "O2"],
+      "XI": ["Upacara / Kegiatan Keagamaan", "B1", "B1", "B1", "Kimia & Sosiologi", "Kimia & Sosiologi", "Kimia & Sosiologi", "Fisika & Ekonomi", "Fisika & Ekonomi", ""],
+      "XII": ["Upacara / Kegiatan Keagamaan", "M1", "M1", "M1", "Biologi & Informatika", "Biologi & Informatika", "Biologi & Informatika", "Matematika Tingkat Lanjut & Geografi", "Matematika Tingkat Lanjut & Geografi", ""]
+    },
+    "Selasa": {
+      "X": ["Kegiatan Keagamaan", "P", "P", "B1", "B1", "B1", "L2", "L2", "O", "O"],
+      "XI": ["Kegiatan Keagamaan", "Biologi & Geografi", "Biologi & Geografi", "Biologi & Geografi", "Informatika & Matematika Tingkat Lanjut", "Informatika & Matematika Tingkat Lanjut", "Informatika & Matematika Tingkat Lanjut", "H", "H", "H"],
+      "XII": ["Kegiatan Keagamaan", "Kimia & Sosiologi", "Kimia & Sosiologi", "Kimia & Sosiologi", "Ekonomi & Fisika", "Ekonomi & Fisika", "Ekonomi & Fisika", "B1", "B1", "B1"]
+    },
+    "Rabu": {
+      "X": ["Kegiatan Keagamaan", "J", "J", "E", "E", "S2", "S2", "Numerasi", "Numerasi", ""],
+      "XI": ["Kegiatan Keagamaan", "Kimia & Sosiologi", "Kimia & Sosiologi", "M1", "M1", "M1", "L1", "L1", "A1/T1", "A1/T1"],
+      "XII": ["Kegiatan Keagamaan", "Biologi & Informatika", "Biologi & Informatika", "H", "H", "H", "P", "P", "B2", "B2"]
+    },
+    "Kamis": {
+      "X": ["Kegiatan Keagamaan", "Literasi", "Literasi", "L1", "L1", "I", "I", "T2", "T2", ""],
+      "XI": ["Kegiatan Keagamaan", "Informatika & Matematika Tingkat Lanjut", "Informatika & Matematika Tingkat Lanjut", "Biologi & Geografi", "Biologi & Geografi", "K2", "K2", "Fisika & Ekonomi", "Fisika & Ekonomi", ""],
+      "XII": ["Kegiatan Keagamaan", "J", "J", "Kimia & Sosiologi", "Kimia & Sosiologi", "A2", "A2", "Matematika Tingkat Lanjut & Geografi", "Matematika Tingkat Lanjut & Geografi", ""]
+    },
+    "Jumat": {
+      "X": ["Senam", "K1", "K1", "M1", "M1", "M1", "F", "F", "", "Pramuka"],
+      "XI": ["Senam", "J", "J", "P", "P", "T2", "T2", "G2", "G2", "Pramuka"],
+      "XII": ["Senam", "A1/T1", "A1/T1", "Ekonomi & Fisika", "Ekonomi & Fisika", "S2", "S2", "L1", "L1", ""]
+    }
+  }
+}

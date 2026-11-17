@@ -1,0 +1,24 @@
+{
+  "siswa": [
+    { "id": "s01", "no": 1, "nama": "Safta" },
+    { "id": "s02", "no": 2, "nama": "Hafizh" },
+    { "id": "s03", "no": 3, "nama": "Azzam" },
+    { "id": "s04", "no": 4, "nama": "Devita" },
+    { "id": "s05", "no": 5, "nama": "Hafiza" },
+    { "id": "s06", "no": 6, "nama": "Nhadyra" },
+    { "id": "s07", "no": 7, "nama": "Ivrina" },
+    { "id": "s08", "no": 8, "nama": "Shafiqa" },
+    { "id": "s09", "no": 9, "nama": "Oryza" },
+    { "id": "s10", "no": 10, "nama": "Jenar" },
+    { "id": "s11", "no": 11, "nama": "Melati" },
+    { "id": "s12", "no": 12, "nama": "Marwah" },
+    { "id": "s13", "no": 13, "nama": "Adinda" },
+    { "id": "s14", "no": 14, "nama": "Rafi" },
+    { "id": "s15", "no": 15, "nama": "Berlin" },
+    { "id": "s16", "no": 16, "nama": "Rafa" },
+    { "id": "s17", "no": 17, "nama": "Al" },
+    { "id": "s18", "no": 18, "nama": "Adiva" },
+    { "id": "s19", "no": 19, "nama": "Shalom" },
+    { "id": "s20", "no": 20, "nama": "Adit" }
+  ]
+}
