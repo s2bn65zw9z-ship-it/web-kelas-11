@@ -689,9 +689,7 @@
       align-items: flex-end;
       justify-content: center
     }
-    #sheet[hidden] {
-      display: none !important;
-    }
+
     .sheet {
       background: var(--surface);
       width: 100%;
@@ -1847,7 +1845,7 @@
       const teks = $("#mTeks").value.trim();
       if (!teks) {toast("Tempel teks notifikasi dulu."); return }
       if (Object.values(S.mutasi).some(m => (m.teks || "").trim() === teks)) {toast("Notifikasi yang sama sudah pernah dimasukkan."); return }
-      const id = "m" + Date.now(), data = {teks, status: "baru", sumber: "manual", diterima: new Date().toISOString()};
+      const id = "m" + Date.now(), data = {teks, status: "baru", sumber: "manual", kunci: KUNCI_MUTASI, diterima: new Date().toISOString()};
       if (S.db) {try {await S.db.collection("mutasi").doc(id).set(data)} catch (e) {toast("Gagal menyimpan."); return } }
       else {S.mutasi[id] = data; lsSave(); await prosesMutasi(id)}
       $("#mTeks").value = "";
@@ -1878,7 +1876,7 @@
     function openMutasi() {
       const url = S.db ? `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents/mutasi?key=${firebaseConfig.apiKey}` : "(butuh Firebase aktif)";
       const body = `{"fields":{"teks":{"stringValue":"ISI_NOTIFIKASI"},"status":{"stringValue":"baru"},"sumber":{"stringValue":"hp"},"kunci":{"stringValue":"${KUNCI_MUTASI}"}}}`;
-      const rules = `match /mutasi/{id} {\n  allow read, update: if true;\n  allow create: if request.resource.data.kunci == "${KUNCI_MUTASI}"\n                && request.resource.data.status == "baru";\n}\nmatch /pengeluaran/{id} { allow read, write: if true; }`;
+      const rules = `rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /kas/{id} { allow read, write: if true; }\n    match /izin/{id} { allow read, write: if true; }\n    match /pengaturan/{id} { allow read, write: if true; }\n    match /pengeluaran/{id} { allow read, write: if true; }\n    match /mutasi/{id} {\n      allow read, update: if true;\n      allow create: if request.resource.data.kunci == "${KUNCI_MUTASI}"\n                    && request.resource.data.status == "baru";\n    }\n  }\n}`;
       openSheet(sheetHead(`<div class="av" style="--h:150">Q</div>`, "Notifikasi QRIS", "Pembayaran dibaca otomatis lalu dicatat ke kas") +
         `<form id="mutForm"><div class="field"><label for="mTeks">Tempel notifikasi pembayaran masuk</label><textarea id="mTeks" rows="3" placeholder="Contoh: Anda menerima Rp10.007 dari ..."></textarea></div>
         <div class="actions"><button class="btn" type="submit">Baca &amp; catat</button></div></form>
@@ -1886,7 +1884,7 @@
         <details class="setup"><summary>Sambungkan HP bendahara (otomatis penuh)</summary>
           <p style="margin:8px 0">Pasang aplikasi pembaca notifikasi di HP yang menerima dana QRIS (mis. MacroDroid atau Tasker). Saat notifikasi bank/e-wallet masuk, kirim HTTP POST berikut:</p>
           <b>URL</b><pre>${esc(url)}</pre><b>Body (JSON), ganti ISI_NOTIFIKASI dengan teks notifikasi</b><pre>${esc(body)}</pre>
-          <b>Firestore Rules (tambahkan)</b><pre>${esc(rules)}</pre>
+          <b>Firestore Rules (tempel SELURUHNYA, ganti rules lama, lalu Publish)</b><pre>${esc(rules)}</pre>
         </details>`);
       fillMut();
     }
