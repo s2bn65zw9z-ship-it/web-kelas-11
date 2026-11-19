@@ -237,7 +237,7 @@
         bottom: 0;
         z-index: 20;
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(5, 1fr);
         gap: 2px;
         background: var(--surface);
         border-top: 1px solid var(--line);
@@ -689,9 +689,7 @@
       align-items: flex-end;
       justify-content: center
     }
-    #sheet[hidden] {
-      display: none !important;
-    }
+
     .sheet {
       background: var(--surface);
       width: 100%;
@@ -795,7 +793,7 @@
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 12px;
       margin-bottom: 16px
     }
@@ -1282,7 +1280,30 @@
       text-align: center;
       color: var(--muted)
     }
- 
+
+    /* ---- Tambahan: kas keluar & mutasi QRIS ---- */
+    .pay{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:10px 12px;margin:0 0 10px;text-align:left}
+    .pay span{display:block;font-size:12px;color:var(--muted);font-weight:600}
+    .pay b{display:block;font-family:var(--f-display);font-size:26px;font-variant-numeric:tabular-nums}
+    .pay i{display:block;font-style:normal;font-size:12px;color:var(--muted)}
+    .pay select{width:100%;margin-bottom:8px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit}
+    .out{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+    .out .t{flex:1;min-width:140px}
+    .out .t b{display:block;overflow-wrap:anywhere}
+    .out .t span{font-size:13px;color:var(--muted)}
+    .out .amt{font-weight:800;color:var(--bad);font-variant-numeric:tabular-nums}
+    .tag.ok{background:var(--ok-soft);color:var(--ok)}
+    .tag.cek{background:var(--warn-soft);color:var(--warn)}
+    .tag.abaikan{background:var(--surface-2);color:var(--muted)}
+    .mut{padding:10px 0;border-top:1px solid var(--line)}
+    .mut .r1{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    .mut .tx{font-size:12px;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
+    .mut .act{display:flex;gap:6px;margin-top:8px}
+    .mut .act select{flex:1;min-width:0;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit}
+    .badge{display:inline-block;min-width:18px;padding:0 6px;border-radius:99px;background:var(--bad);color:#fff;font-size:12px;font-weight:700;margin-left:6px}
+    details.setup{margin-top:14px;font-size:13px}
+    details.setup summary{cursor:pointer;font-weight:700}
+    details.setup pre{white-space:pre-wrap;word-break:break-all;background:var(--surface-2);padding:10px;border-radius:10px;font-size:11px;margin:6px 0 10px;user-select:all}
   </style>
 </head>
 
@@ -1316,6 +1337,10 @@
           stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
         </svg>Rekap</a>
+      <a href="#keluar" data-p="keluar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 17L17 7M9 7h8v8" />
+        </svg>Keluar</a>
       <a href="#jadwal" data-p="jadwal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="5" width="18" height="16" rx="2" />
@@ -1350,6 +1375,8 @@
     };
     // PIN untuk Bendahara agar bisa mencatat & mengedit kas (ubah sesuai keinginan)
     const PIN_BENDAHARA = "928376";
+    // Kunci rahasia untuk HP bendahara yang mengirim notifikasi pembayaran (ganti sesuka Anda, samakan di Firestore Rules)
+    const KUNCI_MUTASI = "kk-7f3a9c21d4e8b650";
     // =========================================================================
 
     const $ = (s, r = document) => r.querySelector(s);
@@ -1367,7 +1394,7 @@
     const sh = sid => (parseInt(String(sid).slice(1), 10) * 47 + 200) % 360;
 
     const S = {
-      siswa: [], cfg: null, jadwal: null, kas: {}, izin: {}, nominal: 10000, bulan: "", page: "kas", filter: "semua",
+      siswa: [], cfg: null, jadwal: null, kas: {}, izin: {}, keluar: {}, mutasi: {}, proses: new Set(), mutOn: false, nominal: 10000, bulan: "", page: "kas", filter: "semua",
       hari: "", grade: "XI", db: null, mode: "memuat", canKas: false, canIzin: true, slow: false, pendingStu: null
     };
 
@@ -1389,7 +1416,13 @@
     const metodeLabel = m => m === "qris" ? "QRIS" : "Tunai";
     const LS = "kaskelas-v1";
     function lsLoad() {try {return JSON.parse(localStorage.getItem(LS) || "{}")} catch (e) {return {}} }
-    function lsSave() {try {localStorage.setItem(LS, JSON.stringify({kas: S.kas, izin: S.izin, nominal: S.nominal}))} catch (e) { } }
+    function lsSave() {try {localStorage.setItem(LS, JSON.stringify({kas: S.kas, izin: S.izin, keluar: S.keluar, mutasi: S.mutasi, nominal: S.nominal}))} catch (e) { } }
+
+    /* ---------- SALDO ---------- */
+    const totalMasuk = () => Object.values(S.kas).reduce((a, r) => a + (+r.jumlah || 0) + (+r.kode || 0), 0);
+    const totalKeluar = () => Object.values(S.keluar).reduce((a, r) => a + (+r.jumlah || 0), 0);
+    const saldo = () => totalMasuk() - totalKeluar();
+    const jmlCek = () => Object.values(S.mutasi).filter(m => m.status === "cek").length;
     function toast(msg) {const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => {t.hidden = true}, 2800)}
 
     async function init() {
@@ -1411,7 +1444,7 @@
     function connect() {
       // Cek apakah Firebase sudah dikonfigurasi
       if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("GANTI_DENGAN")) {
-        const l = lsLoad(); S.kas = l.kas || {}; S.izin = l.izin || {}; if (l.nominal) S.nominal = l.nominal;
+        const l = lsLoad(); S.kas = l.kas || {}; S.izin = l.izin || {}; S.keluar = l.keluar || {}; S.mutasi = l.mutasi || {}; if (l.nominal) S.nominal = l.nominal;
         S.mode = "lokal"; S.canKas = true; render(); return;
       }
 
@@ -1431,6 +1464,12 @@
           S.kas = m; clearSlow(); onData();
         }, onErr);
 
+        // Listener Real-time Pengeluaran
+        db.collection("pengeluaran").onSnapshot(snap => {
+          const m = {}; snap.forEach(d => {m[d.id] = d.data()});
+          S.keluar = m; clearSlow(); onData();
+        }, onErr);
+
         // Listener Real-time Izin
         db.collection("izin").onSnapshot(snap => {
           const m = {}; snap.forEach(d => {m[d.id] = d.data()});
@@ -1443,11 +1482,22 @@
           onData();
         }, onErr);
 
+        if (S.canKas) listenMutasi();
         render();
       } catch (err) {
         console.error("Firebase gagal:", err);
         S.mode = "lokal"; S.canKas = true; render();
       }
+    }
+
+    // Mutasi (notifikasi pembayaran) hanya dimuat saat mode bendahara aktif
+    function listenMutasi() {
+      if (!S.db || S.mutOn) return;
+      S.mutOn = true;
+      S.db.collection("mutasi").onSnapshot(snap => {
+        const m = {}; snap.forEach(d => {m[d.id] = d.data()});
+        S.mutasi = m; onData(); autoProses();
+      }, e => {console.error(e); S.mutOn = false});
     }
 
     function updateAuthBtn() {
@@ -1469,6 +1519,7 @@
           S.canKas = true;
           localStorage.setItem("kaskelas-bendahara", "true");
           toast("Mode Bendahara aktif!");
+          listenMutasi();
         } else if (pin !== null) {
           toast("PIN salah!");
         }
@@ -1478,8 +1529,9 @@
     }
 
     function onData() {
-      if (S.page === "kas" || S.page === "rekap") render();
+      if (S.page === "kas" || S.page === "rekap" || S.page === "keluar") render();
       else if (S.page === "izin") fillIzin();
+      if ($("#mutList")) fillMut();
       syncChip();
     }
 
@@ -1492,7 +1544,7 @@
 
     function route() {
       const h = (location.hash || "").slice(1);
-      S.page = ["kas", "rekap", "jadwal", "izin"].includes(h) ? h : "kas";
+      S.page = ["kas", "rekap", "keluar", "jadwal", "izin"].includes(h) ? h : "kas";
       closeSheet(); render(); window.scrollTo(0, 0);
       if (S.pendingStu) {const id = S.pendingStu; S.pendingStu = null; openStu(id)}
     }
@@ -1504,6 +1556,7 @@
       const m = $("#main");
       if (S.page === "kas") {m.innerHTML = pageKas(); const on = m.querySelector(".mchip.on"), box = m.querySelector(".months"); if (on && box) box.scrollLeft = on.offsetLeft - box.clientWidth / 2 + on.clientWidth / 2}
       else if (S.page === "rekap") m.innerHTML = pageRekap();
+      else if (S.page === "keluar") m.innerHTML = pageKeluar();
       else if (S.page === "jadwal") m.innerHTML = pageJadwal();
       else pageIzin();
       syncChip();
@@ -1534,8 +1587,9 @@
           <div class="k">Uang kas ${ymLabel(b)}</div>
           <h2>${rp(got)}</h2>
           <div class="of">dari target ${rp(target)} • iuran ${rp(S.nominal)} per siswa</div>
+          <div class="of" style="margin-top:4px">Saldo kas sekarang <b>${rp(saldo())}</b> (setelah pengeluaran)</div>
           <div class="pbar"><i style="width:${pct * 100}%"></i></div>
-          <div class="herobtns"><button class="btn sun" data-act="qris">Bayar lewat QRIS</button>${S.canKas ? `<button class="btn ghost" style="color:var(--hero-ink);border-color:rgba(255,255,255,.35)" data-act="nominal">Atur iuran</button>` : ""}</div>
+          <div class="herobtns"><button class="btn sun" data-act="qris">Bayar lewat QRIS</button>${S.canKas ? `<button class="btn ghost" style="color:var(--hero-ink);border-color:rgba(255,255,255,.35)" data-act="nominal">Atur iuran</button><button class="btn ghost" style="color:var(--hero-ink);border-color:rgba(255,255,255,.35)" data-act="mutasi">Notifikasi QRIS${jmlCek() ? `<span class="badge">${jmlCek()}</span>` : ""}</button>` : ""}</div>
         </div>
         <svg class="ring" viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="52"/><circle class="fg" cx="60" cy="60" r="52" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}" transform="rotate(-90 60 60)"/><text class="n" x="60" y="62">${lunas}/${n}</text><text class="l" x="60" y="80">lunas</text></svg>
       </section>
@@ -1544,17 +1598,25 @@
       ${cards ? `<div class="grid">${cards}</div>` : `<div class="card empty">${S.filter === "lunas" ? "Belum ada yang lunas bulan ini." : "Semua sudah lunas bulan ini."}</div>`}`;
     }
 
-    function qrBlock() {
+    function payHtml(sid) {
+      const s = byId(sid);
+      if (!s) return `<p>Pilih namamu dulu. Nominal bayar akan berbeda tiap siswa (iuran + nomor absen) supaya pembayaran terbaca otomatis.</p>`;
+      return `<div class="pay"><span>Bayar tepat ${esc(s.nama)}</span><b>${rp(S.nominal + s.no)}</b><i>${rp(S.nominal)} iuran + ${s.no} kode nama${S.cfg.bulan.length ? ` • 2 bulan sekaligus: ${rp(S.nominal * 2 + s.no)}` : ""}</i></div>
+      <p>Scan dengan e-wallet atau m-banking, lalu isi nominal <b>persis</b> seperti di atas. Pembayaran akan tercatat otomatis.</p>`;
+    }
+    function qrBlock(sid, pilih) {
       const q = S.cfg.qris || {};
+      const opts = S.siswa.map(s => `<option value="${s.id}">${s.no}. ${esc(s.nama)}</option>`).join("");
       return `<div class="qr"><img src="${esc(q.gambar)}" alt="Kode QRIS"><div class="nmid">NMID ${esc(q.nmid || "")}</div>
-      <p>Scan dengan e-wallet atau m-banking, lalu isi nominal sendiri (${rp(S.nominal)}). Setelah membayar, kirim bukti ke bendahara.</p></div>`;
+      ${pilih ? `<div class="pay"><select id="pilihNama"><option value="">Pilih namamu</option>${opts}</select></div>` : ""}
+      <div id="payInfo">${payHtml(sid)}</div></div>`;
     }
 
     function openSheet(html) {const s = $("#sheet"); s.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${html}</div>`; s.hidden = false}
     function closeSheet() {const s = $("#sheet"); s.hidden = true; s.innerHTML = ""}
     const sheetHead = (avatar, title, sub) => `<div class="sh-head">${avatar}<div><h3>${title}</h3><p>${sub}</p></div><button class="x" data-act="close">×</button></div>`;
 
-    function openQris() {openSheet(sheetHead(`<div class="av" style="--h:45">Rp</div>`, "Bayar kas lewat QRIS", `${ymLabel(S.bulan)} • ${rp(S.nominal)}`) + qrBlock())}
+    function openQris() {openSheet(sheetHead(`<div class="av" style="--h:45">Rp</div>`, "Bayar kas lewat QRIS", `${ymLabel(S.bulan)} • ${rp(S.nominal)}`) + qrBlock(null, true))}
     function openNominal() {
       openSheet(sheetHead(`<div class="av" style="--h:200">Rp</div>`, "Atur iuran per bulan", "Berlaku untuk catatan baru") +
         `<form id="nominalForm"><div class="field"><label for="fNominal">Iuran per siswa (Rp)</label><input id="fNominal" type="number" min="0" step="500" value="${S.nominal}"></div>
@@ -1569,7 +1631,7 @@
         if (r) {
           openSheet(head + `<dl class="kv"><dt>Status</dt><dd><span class="chip ${st}">${st === "lunas" ? "Lunas" : "Belum penuh"}</span></dd><dt>Metode</dt><dd>${metodeLabel(r.metode)}</dd><dt>Jumlah</dt><dd>${rp(r.jumlah)}</dd><dt>Tanggal</dt><dd>${esc(fmtTgl(r.tanggal))}</dd></dl>`);
         } else {
-          openSheet(head + `<p class="note" style="margin-bottom:14px">Belum ada catatan pembayaran bulan ini.</p>` + qrBlock());
+          openSheet(head + `<p class="note" style="margin-bottom:14px">Belum ada catatan pembayaran bulan ini.</p>` + qrBlock(sid));
         }
         return;
       }
@@ -1579,7 +1641,7 @@
           <label class="segopt"><input type="radio" name="metode" value="cash" ${m === "cash" ? "checked" : ""}>Tunai</label>
           <label class="segopt"><input type="radio" name="metode" value="qris" ${m === "qris" ? "checked" : ""}>QRIS</label>
         </div>
-        <div id="qrBlock" ${m === "qris" ? "" : "hidden"}>${qrBlock()}</div>
+        <div id="qrBlock" ${m === "qris" ? "" : "hidden"}>${qrBlock(sid)}</div>
         <div class="row2">
           <div class="field"><label for="fJumlah">Jumlah (Rp)</label><input id="fJumlah" type="number" min="0" step="500" value="${jml}"></div>
           <div class="field"><label for="fTgl">Tanggal bayar</label><input id="fTgl" type="date" value="${esc(tg)}"></div>
@@ -1618,6 +1680,215 @@
       closeSheet(); toast("Iuran diperbarui"); render();
     }
 
+
+    /* ---------- KAS KELUAR ---------- */
+    function pageKeluar() {
+      const masuk = totalMasuk(), keluar = totalKeluar(), sal = masuk - keluar;
+      const arr = Object.keys(S.keluar).map(k => Object.assign({k}, S.keluar[k])).filter(x => x && x.tanggal)
+        .sort((a, b) => b.tanggal.localeCompare(a.tanggal) || String(b.dicatat || "").localeCompare(String(a.dicatat || "")));
+      const list = arr.map(x => `<li class="out"><div class="t"><b>${esc(x.keterangan || "Pengeluaran")}</b><span>${esc(fmtTgl(x.tanggal))}</span></div><span class="amt">− ${rp(x.jumlah)}</span>${S.canKas ? `<button class="btn ghost sm" data-act="editkeluar" data-id="${esc(x.k)}">Ubah</button><button class="btn danger sm" data-act="hapuskeluar" data-id="${esc(x.k)}">Hapus</button>` : ""}</li>`).join("");
+      return `
+      <div class="pagehead"><div><h2>Kas keluar</h2><p>Pengeluaran otomatis mengurangi saldo kas</p></div>${S.canKas ? `<button class="btn sm" data-act="keluar">Catat pengeluaran</button>` : ""}</div>
+      ${S.mode === "bersama" && !S.canKas ? `<div class="note info">Mode lihat: hanya bendahara yang bisa mencatat pengeluaran.</div>` : ""}
+      <div class="stats">
+        <div class="card stat ${sal < 0 ? "bad" : ""}"><div class="k">Saldo kas</div><div class="v">${rp(sal)}</div></div>
+        <div class="card stat"><div class="k">Total uang masuk</div><div class="v">${rp(masuk)}</div></div>
+        <div class="card stat"><div class="k">Total pengeluaran</div><div class="v">${rp(keluar)}</div></div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:18px">Riwayat pengeluaran</h3>
+        ${list ? `<ul class="izlist">${list}</ul>` : `<div class="empty">Belum ada pengeluaran tercatat.</div>`}
+      </div>`;
+    }
+
+    function openKeluar(id) {
+      const x = id ? S.keluar[id] : null;
+      openSheet(sheetHead(`<div class="av" style="--h:10">−</div>`, x ? "Ubah pengeluaran" : "Catat pengeluaran", `Saldo sekarang ${rp(saldo())}`) +
+        `<form id="keluarForm" data-id="${esc(id || "")}">
+        <div class="field"><label for="kKet">Untuk keperluan apa</label><input id="kKet" type="text" maxlength="120" placeholder="Contoh: beli spidol, fotokopi, hadiah" value="${esc(x ? x.keterangan : "")}"></div>
+        <div class="row2">
+          <div class="field"><label for="kJml">Jumlah (Rp)</label><input id="kJml" type="number" min="0" step="500" value="${x ? x.jumlah : ""}"></div>
+          <div class="field"><label for="kTgl">Tanggal</label><input id="kTgl" type="date" value="${esc(x ? x.tanggal : todayStr())}"></div>
+        </div>
+        <div class="actions"><button class="btn" type="submit" id="kSave">Simpan</button><button class="btn ghost" type="button" data-act="close">Batal</button></div>
+      </form>`);
+    }
+
+    async function saveKeluar(id) {
+      const ket = $("#kKet").value.trim().slice(0, 120), jumlah = Math.max(0, Math.round(+$("#kJml").value || 0)), tanggal = $("#kTgl").value || todayStr();
+      if (!ket || !jumlah) {toast("Isi keperluan dan jumlahnya dulu."); return }
+      const lama = id && S.keluar[id] ? +S.keluar[id].jumlah || 0 : 0;
+      if (jumlah - lama > saldo() && !confirm(`Pengeluaran ${rp(jumlah)} melebihi saldo ${rp(saldo())}. Tetap simpan?`)) return;
+      const btn = $("#kSave"); btn.disabled = true;
+      const data = {keterangan: ket, jumlah, tanggal, dicatat: new Date().toISOString()};
+      if (S.db) {
+        try {if (id) await S.db.collection("pengeluaran").doc(id).set(data); else await S.db.collection("pengeluaran").add(data)}
+        catch (e) {btn.disabled = false; toast("Gagal menyimpan ke server."); return }
+      } else {S.keluar[id || "k" + Date.now()] = data; lsSave()}
+      closeSheet(); toast("Pengeluaran tersimpan"); render();
+    }
+
+    async function hapusKeluar(id) {
+      if (!confirm("Hapus catatan pengeluaran ini? Saldo akan bertambah kembali.")) return;
+      if (S.db) {try {await S.db.collection("pengeluaran").doc(id).delete()} catch (e) {toast("Gagal menghapus."); return } }
+      else {delete S.keluar[id]; lsSave()}
+      toast("Pengeluaran dihapus"); render();
+    }
+
+    /* ---------- QRIS OTOMATIS (baca notifikasi pembayaran) ---------- */
+    const MASUK_RE = /nerima|terima|masuk|received|credit|kredit|\bCR\b/i;
+    const KELUAR_RE = /dikirim|kirim ke|transfer ke|debit|pembelian|bayar ke|tarik tunai/i;
+
+    function bacaNominal(t) {
+      const m = /(?:rp|idr)\.?\s*([0-9][0-9.,]*)/i.exec(t); if (!m) return 0;
+      let v = m[1].replace(/[.,]+$/, "").replace(/[.,]\d{1,2}$/, "").replace(/[.,]/g, "");
+      return +v || 0;
+    }
+
+    // Kode unik: nominal dibayar = iuran x jumlah bulan + nomor absen siswa
+    function cocokkan(teks) {
+      const n = S.siswa.length, nom = S.nominal, amt = bacaNominal(teks);
+      if (!amt) return {st: "abaikan", alasan: "Tidak ada nominal Rp di teks", amt: 0};
+      const masuk = MASUK_RE.test(teks);
+      if (KELUAR_RE.test(teks) && !masuk) return {st: "abaikan", alasan: "Bukan uang masuk", amt};
+      let sid = null, kode = 0;
+      const k = amt % nom;
+      if (amt >= nom && k >= 1 && k <= n) {const s = S.siswa.find(x => x.no === k); if (s) {sid = s.id; kode = k} }
+      if (!sid) {
+        const low = teks.toLowerCase();
+        const cand = S.siswa.filter(s => new RegExp("(^|[^a-z])" + s.nama.toLowerCase().replace(/[^a-z ]/g, "") + "([^a-z]|$)").test(low));
+        if (cand.length === 1) sid = cand[0].id;
+      }
+      if (!sid) return {st: "cek", alasan: "Nama siswa tidak dikenali", amt};
+      if (!masuk) return {st: "cek", alasan: "Tidak jelas apakah uang masuk", amt, sid};
+      return {st: "cocok", sid, kode, amt, alok: amt - kode};
+    }
+
+    function rencana(sid, total, recs) {
+      const out = []; let sisa = total;
+      for (const m of S.cfg.bulan) {
+        if (sisa <= 0) break;
+        const r = recs[m], kurang = targetOf(r) - (r ? +r.jumlah || 0 : 0);
+        if (kurang <= 0) continue;
+        const a = Math.min(kurang, sisa); out.push({bulan: m, jumlah: a}); sisa -= a;
+      }
+      return {out, sisa};
+    }
+
+    function susunTulis(sid, plan, kode, mid, recs) {
+      const iso = new Date().toISOString();
+      return plan.out.map((p, i) => {
+        const r = recs[p.bulan], extra = i === plan.out.length - 1 ? kode + plan.sisa : 0;
+        const data = r
+          ? Object.assign({}, r, {jumlah: (+r.jumlah || 0) + p.jumlah, kode: (+r.kode || 0) + extra, metode: (+r.jumlah || 0) > 0 ? r.metode : "qris", mutasi: (r.mutasi || []).concat(mid)})
+          : {siswaId: sid, bulan: p.bulan, metode: "qris", jumlah: p.jumlah, target: S.nominal, tanggal: todayStr(), dicatat: iso, kode: extra, mutasi: [mid], sumber: "qris-otomatis"};
+        return {id: docId(sid, p.bulan), data};
+      });
+    }
+
+    // Terapkan satu mutasi ke catatan kas. auto = true: tolak jika ada sisa nominal.
+    async function terapkan(mid, sid, total, kode, dariStatus, auto) {
+      const iso = new Date().toISOString();
+      if (S.db) {
+        const mref = S.db.collection("mutasi").doc(mid);
+        return S.db.runTransaction(async tx => {
+          const ms = await tx.get(mref);
+          if (!ms.exists || !dariStatus.includes(ms.data().status)) throw "sudah";
+          const snaps = await Promise.all(S.cfg.bulan.map(m => tx.get(S.db.collection("kas").doc(docId(sid, m)))));
+          const recs = {}; S.cfg.bulan.forEach((m, i) => {if (snaps[i].exists) recs[m] = snaps[i].data()});
+          const plan = rencana(sid, total, recs);
+          if (!plan.out.length) throw {cek: "Semua bulan siswa ini sudah lunas"};
+          if (auto && plan.sisa > 0) throw {cek: `Nominal lebih ${rp(plan.sisa)} dari sisa tagihan`};
+          susunTulis(sid, plan, kode, mid, recs).forEach(w => tx.set(S.db.collection("kas").doc(w.id), w.data));
+          tx.update(mref, {status: "cocok", siswaId: sid, hasil: plan.out, kode: kode + plan.sisa, diproses: iso});
+          return plan;
+        });
+      }
+      const recs = {}; S.cfg.bulan.forEach(m => {const r = rec(sid, m); if (r) recs[m] = r});
+      const plan = rencana(sid, total, recs);
+      if (!plan.out.length) throw {cek: "Semua bulan siswa ini sudah lunas"};
+      if (auto && plan.sisa > 0) throw {cek: `Nominal lebih ${rp(plan.sisa)} dari sisa tagihan`};
+      susunTulis(sid, plan, kode, mid, recs).forEach(w => {S.kas[w.id] = w.data});
+      Object.assign(S.mutasi[mid], {status: "cocok", siswaId: sid, hasil: plan.out, kode: kode + plan.sisa, diproses: iso});
+      lsSave(); return plan;
+    }
+
+    async function setMut(id, patch) {
+      if (S.db) await S.db.collection("mutasi").doc(id).update(patch);
+      else {Object.assign(S.mutasi[id], patch); lsSave(); onData()}
+    }
+
+    async function prosesMutasi(id) {
+      const m = S.mutasi[id]; if (!m || m.status !== "baru" || S.proses.has(id)) return;
+      S.proses.add(id);
+      const c = cocokkan(m.teks || "");
+      try {
+        if (c.st === "abaikan") await setMut(id, {status: "abaikan", alasan: c.alasan, jumlah: c.amt, diproses: new Date().toISOString()});
+        else if (c.st === "cek") await setMut(id, {status: "cek", alasan: c.alasan, jumlah: c.amt, diproses: new Date().toISOString(), ...(c.sid ? {siswaId: c.sid} : {})});
+        else {
+          const plan = await terapkan(id, c.sid, c.alok, c.kode, ["baru"], true);
+          toast(`Terbaca: ${byId(c.sid).nama} ${rp(c.amt)} (${plan.out.map(p => BLN3[+p.bulan.slice(5) - 1]).join(", ")})`);
+        }
+      } catch (e) {
+        if (e && e.cek) {try {await setMut(id, {status: "cek", alasan: e.cek, jumlah: c.amt, siswaId: c.sid, diproses: new Date().toISOString()})} catch (x) { } }
+        else if (e !== "sudah") {console.error(e); S.proses.delete(id)}
+      }
+      render();
+    }
+
+    function autoProses() {
+      if (!S.canKas || !S.cfg) return;
+      Object.keys(S.mutasi).forEach(id => {if (S.mutasi[id].status === "baru") prosesMutasi(id)});
+    }
+
+    async function tambahMutasi() {
+      const teks = $("#mTeks").value.trim();
+      if (!teks) {toast("Tempel teks notifikasi dulu."); return }
+      if (Object.values(S.mutasi).some(m => (m.teks || "").trim() === teks)) {toast("Notifikasi yang sama sudah pernah dimasukkan."); return }
+      const id = "m" + Date.now(), data = {teks, status: "baru", sumber: "manual", diterima: new Date().toISOString()};
+      if (S.db) {try {await S.db.collection("mutasi").doc(id).set(data)} catch (e) {toast("Gagal menyimpan."); return } }
+      else {S.mutasi[id] = data; lsSave(); await prosesMutasi(id)}
+      $("#mTeks").value = "";
+    }
+
+    async function catatManual(id) {
+      const sid = ($("#sel_" + id) || {}).value; if (!sid) {toast("Pilih nama siswa dulu."); return }
+      const m = S.mutasi[id], amt = +m.jumlah || bacaNominal(m.teks || ""), k = amt % S.nominal;
+      const kode = amt >= S.nominal && k >= 1 && k <= S.siswa.length && byId(sid).no === k ? k : 0;
+      try {const plan = await terapkan(id, sid, amt - kode, kode, ["cek", "baru"], false); toast(`Dicatat untuk ${byId(sid).nama}`); render()}
+      catch (e) {toast(e && e.cek ? e.cek : e === "sudah" ? "Sudah diproses." : "Gagal mencatat.")}
+    }
+
+    const mutKey = m => m.diterima || m.diproses || "";
+    function fillMut() {
+      const box = $("#mutList"); if (!box) return;
+      const arr = Object.keys(S.mutasi).map(k => Object.assign({k}, S.mutasi[k])).sort((a, b) => mutKey(b).localeCompare(mutKey(a))).slice(0, 15);
+      const opts = S.siswa.map(s => `<option value="${s.id}">${s.no}. ${esc(s.nama)}</option>`).join("");
+      box.innerHTML = arr.length ? arr.map(m => {
+        const s = byId(m.siswaId), lab = m.status === "cocok" ? "Tercatat" : m.status === "cek" ? "Perlu dicek" : m.status === "abaikan" ? "Diabaikan" : "Memproses";
+        const bulan = m.status === "cocok" && m.hasil ? m.hasil.map(h => BLN3[+h.bulan.slice(5) - 1]).join(", ") : "";
+        return `<div class="mut"><div class="r1"><b>${m.jumlah || bacaNominal(m.teks || "") ? rp(m.jumlah || bacaNominal(m.teks || "")) : "-"}${s ? ` • ${esc(s.nama)}` : ""}${bulan ? ` • ${bulan}` : ""}</b><span class="tag ${m.status === "cocok" ? "ok" : m.status === "cek" ? "cek" : "abaikan"}">${lab}</span></div>
+        <div class="tx">${esc((m.teks || "").slice(0, 110))}${m.alasan && m.status !== "cocok" ? ` — <i>${esc(m.alasan)}</i>` : ""}</div>
+        ${m.status === "cek" ? `<div class="act"><select id="sel_${esc(m.k)}"><option value="">Pilih siswa</option>${opts}</select><button class="btn sm" data-act="mutcatat" data-id="${esc(m.k)}">Catat</button><button class="btn ghost sm" data-act="mutabaikan" data-id="${esc(m.k)}">Abaikan</button></div>` : ""}</div>`;
+      }).join("") : `<div class="empty">Belum ada notifikasi masuk.</div>`;
+    }
+
+    function openMutasi() {
+      const url = S.db ? `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents/mutasi?key=${firebaseConfig.apiKey}` : "(butuh Firebase aktif)";
+      const body = `{"fields":{"teks":{"stringValue":"ISI_NOTIFIKASI"},"status":{"stringValue":"baru"},"sumber":{"stringValue":"hp"},"kunci":{"stringValue":"${KUNCI_MUTASI}"}}}`;
+      const rules = `match /mutasi/{id} {\n  allow read, update: if true;\n  allow create: if request.resource.data.kunci == "${KUNCI_MUTASI}"\n                && request.resource.data.status == "baru";\n}\nmatch /pengeluaran/{id} { allow read, write: if true; }`;
+      openSheet(sheetHead(`<div class="av" style="--h:150">Q</div>`, "Notifikasi QRIS", "Pembayaran dibaca otomatis lalu dicatat ke kas") +
+        `<form id="mutForm"><div class="field"><label for="mTeks">Tempel notifikasi pembayaran masuk</label><textarea id="mTeks" rows="3" placeholder="Contoh: Anda menerima Rp10.007 dari ..."></textarea></div>
+        <div class="actions"><button class="btn" type="submit">Baca &amp; catat</button></div></form>
+        <div id="mutList" style="margin-top:14px"></div>
+        <details class="setup"><summary>Sambungkan HP bendahara (otomatis penuh)</summary>
+          <p style="margin:8px 0">Pasang aplikasi pembaca notifikasi di HP yang menerima dana QRIS (mis. MacroDroid atau Tasker). Saat notifikasi bank/e-wallet masuk, kirim HTTP POST berikut:</p>
+          <b>URL</b><pre>${esc(url)}</pre><b>Body (JSON), ganti ISI_NOTIFIKASI dengan teks notifikasi</b><pre>${esc(body)}</pre>
+          <b>Firestore Rules (tambahkan)</b><pre>${esc(rules)}</pre>
+        </details>`);
+      fillMut();
+    }
+
     /* ---------- REKAP ---------- */
     function pageRekap() {
       const bl = S.cfg.bulan, n = S.siswa.length, target = n * S.nominal;
@@ -1646,9 +1917,11 @@
       return `
       <div class="pagehead"><div><h2>Rekap kas</h2><p>Semua bulan tahun ajaran ${esc(S.cfg.tahunAjaran)}</p></div><button class="btn ghost sm" data-act="copycsv">Salin data (CSV)</button></div>
       <div class="stats">
-        <div class="card stat"><div class="k">Total terkumpul</div><div class="v">${rp(all)}</div></div>
+        <div class="card stat"><div class="k">Total terkumpul</div><div class="v">${rp(all + Object.values(S.kas).reduce((a, r) => a + (+r.kode || 0), 0))}</div></div>
         <div class="card stat"><div class="k">Tunai</div><div class="v">${rp(cash)}</div></div>
         <div class="card stat"><div class="k">QRIS</div><div class="v">${rp(qris)}</div></div>
+        <div class="card stat"><div class="k">Pengeluaran</div><div class="v">${rp(totalKeluar())}</div></div>
+        <div class="card stat ${saldo() < 0 ? "bad" : ""}"><div class="k">Saldo kas</div><div class="v">${rp(saldo())}</div></div>
         <div class="card stat bad"><div class="k">Tunggakan s/d bulan ini</div><div class="v">${rp(tg)}</div></div>
       </div>
       <div class="card" style="margin-bottom:16px">
@@ -1809,15 +2082,24 @@
       else if (a === "cell") {S.bulan = t.dataset.m; S.pendingStu = t.dataset.id; if (location.hash === "#kas") route(); else location.hash = "kas"}
       else if (a === "copycsv") copyCsv();
       else if (a === "hapusizin") hapusIzin(t.dataset.k);
+      else if (a === "keluar") openKeluar();
+      else if (a === "editkeluar") openKeluar(t.dataset.id);
+      else if (a === "hapuskeluar") hapusKeluar(t.dataset.id);
+      else if (a === "mutasi") openMutasi();
+      else if (a === "mutcatat") catatManual(t.dataset.id);
+      else if (a === "mutabaikan") setMut(t.dataset.id, {status: "abaikan"}).then(() => {if (!S.db) fillMut()}).catch(() => toast("Gagal."));
     });
     document.addEventListener("submit", e => {
       const id = e.target.id;
       if (id === "kasForm") {e.preventDefault(); saveKas(e.target.dataset.sid)}
       else if (id === "nominalForm") {e.preventDefault(); saveNominal()}
       else if (id === "izinForm") {e.preventDefault(); saveIzin()}
+      else if (id === "keluarForm") {e.preventDefault(); saveKeluar(e.target.dataset.id)}
+      else if (id === "mutForm") {e.preventDefault(); tambahMutasi()}
     });
     document.addEventListener("change", e => {
       if (e.target.name === "metode") {const q = $("#qrBlock"); if (q) q.hidden = e.target.value !== "qris"}
+      if (e.target.id === "pilihNama") {const p = $("#payInfo"); if (p) p.innerHTML = payHtml(e.target.value)}
     });
     document.addEventListener("keydown", e => {if (e.key === "Escape" && !$("#sheet").hidden) closeSheet()});
 
